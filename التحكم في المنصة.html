@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم | Arabic Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+        body { font-family: 'Cairo', sans-serif; background-color: #080808; color: white; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; }
+        .input-glass { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 12px; color: white; width: 100%; outline: none; }
+        .input-glass:focus { border-color: #dc2626; background: rgba(220, 38, 38, 0.05); }
+        .btn-red { background: #dc2626; color: white; padding: 12px 24px; border-radius: 12px; font-weight: 900; transition: 0.3s; width: 100%; }
+        .btn-red:hover { background: #b91c1c; transform: translateY(-2px); }
+    </style>
+</head>
+<body class="p-4">
+    <div class="container mx-auto max-w-5xl">
+        <header class="glass p-5 mb-8 flex justify-between items-center">
+            <h1 class="text-xl font-black flex items-center gap-3">
+                <i class="fas fa-tools text-red-600"></i> لوحة الإدارة
+            </h1>
+            <span class="text-[10px] bg-red-600/20 text-red-500 px-3 py-1 rounded-full font-black">متصل الآن</span>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Form Section -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="glass p-6">
+                    <h2 class="text-lg font-black mb-6 text-red-500"><i class="fas fa-plus-circle ml-2"></i> إضافة كورس جديد</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <input id="c-title" type="text" placeholder="اسم الكورس (مثلاً: نحو تانية ثانوي)" class="input-glass">
+                        <input id="c-instructor" type="text" placeholder="اسمك (المحاضر)" class="input-glass">
+                    </div>
+                    <input id="c-image" type="text" placeholder="رابط صورة غلاف الكورس (URL)" class="input-glass mb-4">
+                    <textarea id="c-desc" placeholder="وصف الكورس بإيجاز..." class="input-glass h-20 mb-6"></textarea>
+
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 mb-6">
+                        <h3 class="text-sm font-black mb-4 flex justify-between">
+                            إضافة دروس للكورس (<span id="count">0</span>)
+                            <i class="fas fa-video text-red-500"></i>
+                        </h3>
+                        <div class="space-y-3">
+                            <input id="l-title" type="text" placeholder="عنوان الدرس" class="input-glass text-sm">
+                            <input id="l-video" type="text" placeholder="رابط فيديو YouTube" class="input-glass text-sm">
+                            <input id="l-pdf" type="text" placeholder="رابط ملزمة الـ PDF" class="input-glass text-sm">
+                            <textarea id="l-summary" placeholder="خلاصة بسطهالك..." class="input-glass text-sm h-16"></textarea>
+                            <button onclick="addLesson()" class="bg-white text-black text-xs font-black py-3 rounded-lg w-full hover:bg-red-600 hover:text-white transition">حفظ الدرس في القائمة</button>
+                        </div>
+                        <div id="lessons-preview" class="mt-4 space-y-2"></div>
+                    </div>
+
+                    <button id="main-btn" onclick="publishCourse()" class="btn-red text-lg shadow-xl shadow-red-600/20">
+                        <i class="fas fa-cloud-upload-alt ml-2"></i> نشر الكورس للطلاب فوراً
+                    </button>
+                </div>
+            </div>
+
+            <!-- List Section -->
+            <div class="space-y-4">
+                <h3 class="text-gray-500 text-xs font-black px-2 tracking-widest uppercase italic">الكورسات المنشورة</h3>
+                <div id="courses-list" class="space-y-3">
+                    <!-- Loaded from Firestore -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let lessons = [];
+
+        // Fetch Courses
+        onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'courses'), (snapshot) => {
+            const list = document.getElementById('courses-list');
+            list.innerHTML = snapshot.docs.map(d => {
+                const data = d.data();
+                return `
+                <div class="glass p-4 border-r-4 border-red-600 flex justify-between items-center group">
+                    <div>
+                        <h4 class="text-sm font-black text-white">${data.title}</h4>
+                        <p class="text-[9px] text-gray-500">${data.lessons.length} درس • ${data.instructor}</p>
+                    </div>
+                    <button onclick="deleteCourse('${d.id}')" class="text-gray-600 hover:text-red-500 transition">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>`;
+            }).join('');
+        });
+
+        window.addLesson = () => {
+            const title = document.getElementById('l-title').value;
+            const videoUrl = document.getElementById('l-video').value;
+            const pdfUrl = document.getElementById('l-pdf').value;
+            const summary = document.getElementById('l-summary').value;
+
+            if (!title) return alert('أدخل عنوان الدرس أولاً');
+
+            lessons.push({ id: Date.now().toString(), title, videoUrl, pdfUrl, summary });
+            
+            // Clear
+            document.getElementById('l-title').value = '';
+            document.getElementById('l-video').value = '';
+            document.getElementById('l-pdf').value = '';
+            document.getElementById('l-summary').value = '';
+            
+            updateUI();
+        };
+
+        function updateUI() {
+            document.getElementById('count').innerText = lessons.length;
+            document.getElementById('lessons-preview').innerHTML = lessons.map((l, i) => `
+                <div class="flex justify-between items-center bg-white/5 p-2 rounded text-[10px]">
+                    <span>${i+1}. ${l.title}</span>
+                    <i class="fas fa-check text-green-500"></i>
+                </div>
+            `).join('');
+        }
+
+        window.publishCourse = async () => {
+            const title = document.getElementById('c-title').value;
+            const instructor = document.getElementById('c-instructor').value;
+            const description = document.getElementById('c-desc').value;
+            const imageUrl = document.getElementById('c-image').value;
+
+            if (!title || lessons.length === 0) return alert('أكمل البيانات وأضف درساً واحداً على الأقل');
+
+            const btn = document.getElementById('main-btn');
+            btn.innerText = 'جاري الرفع...';
+            btn.disabled = true;
+
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'courses'), {
+                    title, instructor, description, imageUrl, lessons,
+                    createdAt: new Date().toISOString()
+                });
+                alert('تم النشر! الكورس متاح للطلاب الآن.');
+                location.reload();
+            } catch (e) {
+                alert('خطأ في الاتصال');
+                btn.disabled = false;
+            }
+        };
+
+        window.deleteCourse = async (id) => {
+            if (confirm('هل أنت متأكد من حذف هذا الكورس وكل محتوياته؟')) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'courses', id));
+            }
+        };
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة الطالب - Arabic Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+        body { font-family: 'Cairo', sans-serif; background-color: #050505; color: white; overflow-x: hidden; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; }
+        .glass-hover:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(220, 38, 38, 0.5); transform: translateY(-5px); transition: all 0.3s ease; }
+        .red-orb { position: fixed; width: 400px; height: 400px; background: rgba(220, 38, 38, 0.15); filter: blur(100px); border-radius: 50%; z-index: -1; }
+        .video-container iframe { width: 100%; aspect-ratio: 16/9; border-radius: 20px; }
+    </style>
+</head>
+<body>
+    <div class="red-orb" style="top: -100px; right: -100px;"></div>
+    <div class="red-orb" style="bottom: -100px; left: -100px; background: rgba(220, 38, 38, 0.05);"></div>
+
+    <!-- Navbar -->
+    <nav class="sticky top-0 z-50 bg-black/60 backdrop-blur-md border-b border-white/10 h-20 flex items-center">
+        <div class="container mx-auto px-6 flex justify-between items-center">
+            <div class="text-3xl font-black tracking-tighter">ARABIC<span class="text-red-600">HUB</span></div>
+            <div id="user-status" class="flex items-center gap-4">
+                <div class="glass px-4 py-1.5 text-xs font-black border-red-600/30 flex items-center gap-2">
+                    <i class="fas fa-trophy text-yellow-400"></i> <span>2500 XP</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main id="main-content" class="container mx-auto p-6">
+        <!-- Home View -->
+        <div id="home-view" class="animate-in fade-in duration-700">
+            <div class="glass p-10 mb-12 bg-gradient-to-br from-red-600/20 to-black/40 relative overflow-hidden">
+                <div class="relative z-10">
+                    <h1 class="text-5xl md:text-7xl font-black mb-6">تعلّم بذكاء.. <br><span class="text-red-600">بأسلوب زجاجي</span></h1>
+                    <p class="text-gray-400 text-lg mb-8 max-w-xl">المنصة الأولى لتعلم اللغة العربية بأحدث تقنيات العرض والتفاعل.</p>
+                </div>
+            </div>
+            
+            <h2 class="text-3xl font-black mb-8 flex items-center gap-3">
+                <span class="w-2 h-8 bg-red-600 rounded-full"></span> الدورات المتاحة
+            </h2>
+            <div id="courses-grid" class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Courses injected here -->
+                <div class="text-center py-20 col-span-full opacity-50">جاري تحميل الدورات...</div>
+            </div>
+        </div>
+
+        <!-- Lesson View (Hidden by default) -->
+        <div id="lesson-view" class="hidden animate-in slide-in-from-bottom-4 duration-500">
+            <button onclick="showHome()" class="text-red-600 font-bold mb-6 flex items-center gap-2">
+                <i class="fas fa-arrow-right"></i> العودة للرئيسية
+            </button>
+            <div class="flex flex-col lg:flex-row gap-8">
+                <div class="lg:w-3/4 space-y-6">
+                    <div id="video-wrapper" class="glass overflow-hidden video-container">
+                        <!-- Video iframe here -->
+                    </div>
+                    <div class="glass p-8 border-l-4 border-l-red-600">
+                        <h2 id="active-lesson-title" class="text-3xl font-black mb-4 tracking-tight"></h2>
+                        <div class="bg-black/40 p-6 rounded-2xl border border-white/5">
+                            <div class="flex items-center gap-2 text-red-500 font-black mb-3 text-sm uppercase tracking-widest">
+                                <i class="fas fa-bolt"></i> بسطهالك (الخلاصة)
+                            </div>
+                            <p id="active-lesson-summary" class="text-gray-300 leading-loose text-lg"></p>
+                        </div>
+                        <div id="pdf-container" class="mt-6">
+                            <!-- PDF Button here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:w-1/4">
+                    <div class="glass p-6 sticky top-24">
+                        <h3 class="text-xl font-black mb-6 border-b border-white/10 pb-4">محتوى الدورة</h3>
+                        <div id="lessons-list" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        const firebaseConfig = JSON.parse('__firebase_config');
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const appId = '__app_id';
+
+        let courses = [];
+
+        // Auth
+        signInAnonymously(auth);
+
+        // Fetch Data
+        const coursesRef = collection(db, 'artifacts', appId, 'public', 'data', 'courses');
+        onSnapshot(coursesRef, (snapshot) => {
+            courses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderCourses();
+        });
+
+        function renderCourses() {
+            const grid = document.getElementById('courses-grid');
+            grid.innerHTML = courses.map(course => `
+                <div class="glass glass-hover overflow-hidden group">
+                    <div class="h-48 bg-cover bg-center relative" style="background-image: url('${course.imageUrl || 'https://via.placeholder.com/400x200?text=Course'}')">
+                        <div class="absolute inset-0 bg-black/40"></div>
+                        <div class="absolute top-4 right-4 bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase">VIP</div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold mb-2 group-hover:text-red-500 transition-colors">${course.title}</h3>
+                        <p class="text-gray-400 text-sm mb-6 line-clamp-2">${course.description}</p>
+                        <div class="flex justify-between items-center border-t border-white/5 pt-4">
+                            <span class="text-xs text-gray-500">د. ${course.instructor}</span>
+                            <button onclick="openCourse('${course.id}')" class="bg-red-600 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg shadow-red-600/20">دخول</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.openCourse = (courseId) => {
+            const course = courses.find(c => c.id === courseId);
+            if (!course || !course.lessons.length) return alert('هذا الكورس لا يحتوي على دروس حالياً');
+            
+            document.getElementById('home-view').classList.add('hidden');
+            document.getElementById('lesson-view').classList.remove('hidden');
+            
+            renderLessonsList(course);
+            openLesson(course.lessons[0]);
+        };
+
+        window.openLesson = (lesson) => {
+            document.getElementById('active-lesson-title').innerText = lesson.title;
+            document.getElementById('active-lesson-summary').innerText = lesson.summary;
+            
+            // Video
+            const videoWrapper = document.getElementById('video-wrapper');
+            if (lesson.videoUrl) {
+                // تصفية رابط يوتيوب ليعمل كـ Embed
+                let embedUrl = lesson.videoUrl.replace("watch?v=", "embed/");
+                videoWrapper.innerHTML = `<iframe src="${embedUrl}" frameborder="0" allowfullscreen></iframe>`;
+            } else {
+                videoWrapper.innerHTML = `<div class="p-20 text-center text-gray-500">لا يوجد فيديو متوفر</div>`;
+            }
+
+            // PDF
+            const pdfContainer = document.getElementById('pdf-container');
+            if (lesson.pdfUrl) {
+                pdfContainer.innerHTML = `
+                    <a href="${lesson.pdfUrl}" target="_blank" class="inline-flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 px-6 py-4 rounded-2xl transition-all w-full md:w-auto">
+                        <i class="fas fa-file-pdf text-red-600 text-2xl"></i>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-500 font-bold uppercase">تحميل المرفقات</div>
+                            <div class="text-sm font-bold text-white">ملزمة الدرس (PDF)</div>
+                        </div>
+                    </a>
+                `;
+            } else {
+                pdfContainer.innerHTML = '';
+            }
+
+            // Update active state in sidebar
+            document.querySelectorAll('.lesson-item').forEach(el => el.classList.remove('bg-red-600', 'border-red-400'));
+            document.getElementById(`lesson-${lesson.id || lesson.title}`).classList.add('bg-red-600', 'border-red-400');
+        };
+
+        function renderLessonsList(course) {
+            const list = document.getElementById('lessons-list');
+            list.innerHTML = course.lessons.map((lesson, idx) => `
+                <div id="lesson-${lesson.id || lesson.title}" onclick='openLesson(${JSON.stringify(lesson)})' 
+                     class="lesson-item p-4 rounded-2xl cursor-pointer transition-all flex items-center gap-4 border border-white/5 bg-white/5 hover:bg-white/10">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm bg-red-600/20 text-red-500">${idx + 1}</div>
+                    <span class="font-bold text-sm text-gray-300">${lesson.title}</span>
+                </div>
+            `).join('');
+        }
+
+        window.showHome = () => {
+            document.getElementById('home-view').classList.remove('hidden');
+            document.getElementById('lesson-view').classList.add('hidden');
+        };
+    </script>
+</body>
+</html>
+
